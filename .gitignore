@@ -1,0 +1,8 @@
+# Pairing credentials (contains client key)
+.lg_tv_store.db
+.lg_tv_key
+
+# Bytecode
+__pycache__/
+*.pyc
+*.pyo
