@@ -32,10 +32,22 @@ pip install bscpylgtv websockets
 ### What works via WebSocket (port 3001)
 - Power state, volume, inputs, app launch/close ✅
 - Picture settings read (`get_picture_settings`) ✅
-- Picture settings write (`luna_request`) ✅
+- Picture settings write (`set_settings`) ✅
 - Subscriptions (`subscribe_picture_settings`) ✅
+- `com.webos.service.oledepl` TPC/GSR (OLED panel power management) ✅
 - `com.webos.settingsservice` via direct `ssap://` ❌ (404)
 - System logs access ❌ (blocked)
+
+### set_settings — primary way to write picture settings
+Use `set_settings('picture', dict)` instead of `set_system_settings`:
+```python
+# CORRECT: uses Luna endpoint internally
+await client.set_settings('picture', {'backlight': 100, 'contrast': 100})
+
+# Does NOT work: SSAP endpoint rejects most keys
+await client.set_system_settings('picture', {'backlight': 100})  # ❌ blocked
+```
+TV takes ~1 second to apply changes after `set_settings` returns `True`.
 
 ### Critical discovery: string values required
 All picture settings must be passed as **strings**, not integers:
@@ -122,7 +134,9 @@ python3 scripts/lg_brightness_guard.py --ip 192.168.2.40 --target 100 --interval
 
 ## Limitations
 
-1. **macOS with SOCKS proxy (Clash)**: Scripts patch `urllib.request.getproxies` to bypass SOCKS for local TV access. This works at import time.
+1. **macOS with SOCKS proxy (Clash)**: Scripts patch `urllib.request.getproxies` to bypass SOCKS for local TV access. Must be patched before bscpylgtv imports websockets.
 2. **No system logs** — TV logging services are blocked from network access
 3. **No HDR state query** — Current HDR mode cannot be read via API
 4. **TV must be on** — WebSocket connection requires TV to be powered on
+5. **`set_system_settings` (SSAP) is restricted** — most keys (`energySaving`, `backlight`, `brightness`, `contrast`) are rejected. Use `set_settings` (Luna) instead.
+6. **`set_configs` does not work on newer WebOS** — returns True but has no effect.

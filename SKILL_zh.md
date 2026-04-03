@@ -32,10 +32,22 @@ pip install bscpylgtv websockets
 ### WebSocket (端口 3001) 可用功能
 - 电源状态、音量、输入源、应用启停 ✅
 - 读取画面设置 (`get_picture_settings`) ✅
-- 写入画面设置 (`luna_request`) ✅
+- 写入画面设置 (`set_settings`) ✅
 - 实时订阅 (`subscribe_picture_settings`) ✅
+- `com.webos.service.oledepl` TPC/GSR（OLED 面板功耗管理）✅
 - 直接 `ssap://` 调用 `settingsservice` ❌ (404)
 - 系统日志访问 ❌ (被阻止)
+
+### set_settings — 写入画面设置的主要方式
+使用 `set_settings('picture', dict)` 而不是 `set_system_settings`：
+```python
+# 正确：内部使用 Luna 端点，可写入
+await client.set_settings('picture', {'backlight': 100, 'contrast': 100})
+
+# 无效：SSAP 端点拒绝大多数 key
+await client.set_system_settings('picture', {'backlight': 100})  # ❌ 被拒绝
+```
+`set_settings` 返回 `True` 后电视约需 1 秒才应用更改。
 
 ### 关键发现：必须用字符串格式
 所有画面参数必须传**字符串**，不能用整数：
@@ -122,7 +134,9 @@ python3 scripts/lg_brightness_guard.py --ip 192.168.2.40 --target 100 --interval
 
 ## 已知限制
 
-1. **macOS + SOCKS 代理（Clash）**：脚本在 import 时 patch `urllib.request.getproxies` 以绕过本地 TV 访问的 SOCKS 代理。
+1. **macOS + SOCKS 代理（Clash）**：脚本在 import 时 patch `urllib.request.getproxies` 以绕过本地 TV 访问的 SOCKS 代理。必须在 bscpylgtv 导入 websockets 前执行。
 2. **无法访问系统日志** — 电视日志服务从网络被阻止
 3. **无法查询 HDR 状态** — 当前 HDR 模式无法通过 API 读取
+4. **`set_system_settings` (SSAP) 受限** — 大多数 key（`energySaving`、`backlight`、`brightness`、`contrast`）被拒绝，改用 `set_settings` (Luna)
+5. **`set_configs` 在新版 WebOS 上不生效** — 返回 True 但无实际效果
 4. **电视必须开机** — WebSocket 连接需要电视处于开机状态

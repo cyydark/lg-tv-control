@@ -40,6 +40,7 @@ Accept it — the client key is saved to `lg_tv_store.db`.
 |--------|-------------|
 | `client.get_power_state()` | Returns `{"state": "Active"}` or `"Off"` |
 | `client.get_picture_settings()` | Returns `{"contrast", "backlight", "brightness", "color"}` |
+| `client.set_settings('picture', dict)` | Write picture settings (uses Luna, works) |
 | `client.get_inputs()` | List all inputs (HDMI_1, HDMI_2, etc.) |
 | `client.get_apps_all()` | List all installed apps |
 | `client.get_current_app()` | Returns current app ID string |
@@ -53,45 +54,33 @@ Accept it — the client key is saved to `lg_tv_store.db`.
 | `client.send_enter_key()` | Send ENTER (IME) |
 | `client.input_command("ENTER")` | Send ENTER via input socket |
 | `subscribe_picture_settings(callback)` | Real-time picture settings subscription |
+| `client.enable_tpc_or_gsr(algo, enable)` | Toggle TPC/GSR for OLED panel power management |
 
-### Via luna_request (luna:// → alert hack)
+### Writing picture settings
+
+**`set_settings('picture', dict)`** — use this, works reliably:
 
 ```python
-from bscpylgtv import endpoints
-
-# WARNING: Triggers TV confirmation dialog on every call
-# WARNING: All values MUST be strings, not integers
-
-await client.luna_request(
-    "com.webos.settingsservice/setSystemSettings",
-    {"category": "picture", "settings": {"backlight": "80"}}
-)
-
-await client.luna_request(
-    "com.webos.settingsservice/setSystemSettings",
-    {"category": "picture", "settings": {"brightness": "50"}}
-)
-
-await client.luna_request(
-    "com.webos.settingsservice/setSystemSettings",
-    {"category": "picture", "settings": {"contrast": "85"}}
-)
-
-await client.luna_request(
-    "com.webos.settingsservice/setSystemSettings",
-    {"category": "picture", "settings": {"pictureMode": "game"}}
-)
-
-await client.luna_request(
-    "com.webos.settingsservice/setSystemSettings",
-    {"category": "picture", "settings": {"energySaving": "off"}}
-)
-
-await client.luna_request(
-    "com.webos.settingsservice/setSystemSettings",
-    {"category": "picture", "settings": {"hdrDynamicToneMapping": "off"}}
-)
+# Write backlight (TV takes ~1 second to apply after return)
+await client.set_settings('picture', {
+    'backlight': 100,
+    'contrast': 100,
+    'brightness': 50,
+    'color': 55,
+})
 ```
+
+**`set_system_settings(category, dict)`** — SSAP endpoint, most keys are blocked:
+
+```python
+# ❌ REJECTED: "Some keys are not allowed"
+await client.set_system_settings('picture', {'backlight': 100})
+
+# ✅ Only these work (non-picture categories)
+await client.set_system_settings('option', {'audioGuidance': 'off'})
+```
+
+### Via luna_request (luna:// → alert hack)
 
 ## Picture Settings
 
@@ -135,8 +124,11 @@ hdmi4, hdmi4_pc, ip, movie, photo, pictest, rgb, scart, smhl
 
 ## What Does NOT Work
 
+- `set_system_settings` (SSAP) with picture keys — rejects `backlight`, `brightness`, `contrast`, `energySaving`
+- `set_configs` — returns True but has no effect on newer WebOS (see bscpylgtv source note)
 - `com.webos.settingsservice` via direct `ssap://` request (404)
 - System log services (blocked)
+- `set_oled_light`, `set_brightness` — driver error, not supported on this model
 - Subscriptions for energy saving changes
 - No TV confirmation dialogs when paired (credentials in `.lg_tv_store.db` suppress all dialogs)
 

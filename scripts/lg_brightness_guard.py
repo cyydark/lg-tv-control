@@ -14,10 +14,20 @@ import argparse
 # Use Python 3.9 packages (where bscpylgtv is installed)
 sys.path.insert(0, "/Users/chenyanyu/Library/Python/3.9/lib/python/site-packages")
 
-# Disable SOCKS proxy (Clash on port 7893 interferes with local TV access)
-for k in list(os.environ.keys()):
-    if "proxy" in k.lower():
-        os.environ.pop(k, None)
+# Disable macOS system SOCKS proxy (Clash on :7893) for local TV WebSocket access.
+# urllib.request.getproxies() reads macOS system proxy settings, which websockets
+# follows unconditionally. Must patch before bscpylgtv imports websockets.
+import urllib.request
+_orig_getproxies = urllib.request.getproxies
+
+
+def _no_socks_getproxies():
+    proxies = _orig_getproxies()
+    proxies.pop("socks", None)
+    return proxies
+
+
+urllib.request.getproxies = _no_socks_getproxies
 
 from bscpylgtv import webos_client, StorageSqliteDict, endpoints
 
