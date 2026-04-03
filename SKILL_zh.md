@@ -139,4 +139,4 @@ python3 scripts/lg_brightness_guard.py --ip 192.168.2.40 --target 100 --interval
 3. **无法查询 HDR 状态** — 当前 HDR 模式无法通过 API 读取
 4. **`set_system_settings` (SSAP) 受限** — 大多数 key（`energySaving`、`backlight`、`brightness`、`contrast`）被拒绝，改用 `set_settings` (Luna)
 5. **`set_configs` 在新版 WebOS 上不生效** — 返回 True 但无实际效果
-4. **电视必须开机** — WebSocket 连接需要电视处于开机状态
+6. **电视必须开机** — WebSocket 连接需要电视处于开机状态

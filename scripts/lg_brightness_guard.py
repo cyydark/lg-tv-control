@@ -29,50 +29,46 @@ def _no_socks_getproxies():
 
 urllib.request.getproxies = _no_socks_getproxies
 
-from bscpylgtv import webos_client, StorageSqliteDict, endpoints
+from bscpylgtv import webos_client, StorageSqliteDict
 
-TV_IP = "192.168.2.40"
 _SKILL_DIR = os.path.dirname(os.path.abspath(__file__)) + "/.."
 STORE_PATH = os.path.join(_SKILL_DIR, ".lg_tv_store.db")
 
 
 class BrightnessGuardian:
-    def __init__(self, target=100, poll=5, threshold=3):
+    def __init__(self, ip: str, target: int = 100, poll: int = 5, threshold: int = 3):
+        self.ip = ip
         self.target = target
         self.poll = poll
         self.threshold = threshold  # min drop to trigger restore
-        self.client = None
-        self.last_backlight = None
+        self.client: webos_client.WebOsClient | None = None
+        self.last_backlight: int | None = None
         self.is_running = False
-        self.last_restore_time = 0  # cooldown to avoid spamming
+        self.last_restore_time = 0.0  # cooldown to avoid spamming
 
     async def connect(self):
         storage = StorageSqliteDict(STORE_PATH)
         await storage.async_init()
         self.client = webos_client.WebOsClient(
-            TV_IP, storage=storage, without_ssl=False,
+            self.ip, storage=storage, without_ssl=False,
             connect_retry_attempts=3, timeout_connect=10
         )
         await self.client.async_init()  # loads client_key from storage
         await self.client.connect()
-        print(f"Connected to {TV_IP}")
+        print(f"Connected to {self.ip}")
 
     async def close(self):
         if self.client:
             await self.client.disconnect()
         print("Disconnected.")
 
-    async def get_backlight(self):
+    async def get_backlight(self) -> int:
         pic = await self.client.get_picture_settings()
         return int(pic.get("backlight", 0))
 
     async def restore_backlight(self):
-        """Set backlight directly. TV may briefly show a pairing dialog on connect,
-        but the command is accepted regardless — no ENTER needed."""
-        await self.client.luna_request(
-            endpoints.LUNA_SET_SYSTEM_SETTINGS,
-            {"category": "picture", "settings": {"backlight": str(self.target)}}
-        )
+        """Set backlight via set_settings (Luna endpoint, works reliably)."""
+        await self.client.set_settings("picture", {"backlight": str(self.target)})
 
     async def run(self):
         await self.connect()
@@ -140,9 +136,10 @@ async def main():
     args = parser.parse_args()
 
     guardian = BrightnessGuardian(
+        ip=args.ip,
         target=args.target,
         poll=args.interval,
-        threshold=args.threshold
+        threshold=args.threshold,
     )
 
     try:

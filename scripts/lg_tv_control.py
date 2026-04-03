@@ -37,7 +37,7 @@ def _no_socks_getproxies():
 
 urllib.request.getproxies = _no_socks_getproxies
 
-from bscpylgtv import webos_client, StorageSqliteDict, endpoints
+from bscpylgtv import webos_client, StorageSqliteDict
 
 # Default store in skill directory (symlinked from ~/.lg_tv_store.db)
 _SKILL_DIR = os.path.dirname(os.path.abspath(__file__)) + "/.."
@@ -81,49 +81,31 @@ class LgTvController:
     async def get_picture(self):
         return await self.client.get_picture_settings()
 
-    async def set_backlight(self, value):
-        """Set backlight 0-255. Must be string."""
-        v = max(0, min(255, int(value)))
-        return await self.client.luna_request(
-            endpoints.LUNA_SET_SYSTEM_SETTINGS,
-            {"category": "picture", "settings": {"backlight": str(v)}}
-        )
+    async def set_backlight(self, value: int):
+        """Set backlight 0-255 via set_settings (Luna endpoint, works reliably)."""
+        v = max(0, min(255, value))
+        return await self.client.set_settings("picture", {"backlight": str(v)})
 
-    async def set_brightness(self, value):
-        """Set brightness 0-100."""
-        v = max(0, min(100, int(value)))
-        return await self.client.luna_request(
-            endpoints.LUNA_SET_SYSTEM_SETTINGS,
-            {"category": "picture", "settings": {"brightness": str(v)}}
-        )
+    async def set_brightness(self, value: int):
+        """Set brightness 0-100 via set_settings."""
+        v = max(0, min(100, value))
+        return await self.client.set_settings("picture", {"brightness": str(v)})
 
-    async def set_contrast(self, value):
-        v = max(0, min(100, int(value)))
-        return await self.client.luna_request(
-            endpoints.LUNA_SET_SYSTEM_SETTINGS,
-            {"category": "picture", "settings": {"contrast": str(v)}}
-        )
+    async def set_contrast(self, value: int):
+        v = max(0, min(100, value))
+        return await self.client.set_settings("picture", {"contrast": str(v)})
 
-    async def set_picture_mode(self, mode):
+    async def set_picture_mode(self, mode: str):
         """Set picture mode. e.g. cinema, game, hdrGame, dolbyHdrCinema."""
-        return await self.client.luna_request(
-            endpoints.LUNA_SET_SYSTEM_SETTINGS,
-            {"category": "picture", "settings": {"pictureMode": mode}}
-        )
+        return await self.client.set_settings("picture", {"pictureMode": mode})
 
-    async def set_energy_saving(self, value="off"):
+    async def set_energy_saving(self, value: str = "off"):
         """Set energy saving: off, min, medium, max, screen_off."""
-        return await self.client.luna_request(
-            endpoints.LUNA_SET_SYSTEM_SETTINGS,
-            {"category": "picture", "settings": {"energySaving": value}}
-        )
+        return await self.client.set_settings("picture", {"energySaving": value})
 
-    async def set_hdr_tone_mapping(self, value="off"):
+    async def set_hdr_tone_mapping(self, value: str = "off"):
         """Set HDR Dynamic Tone Mapping: on, off."""
-        return await self.client.luna_request(
-            endpoints.LUNA_SET_SYSTEM_SETTINGS,
-            {"category": "picture", "settings": {"hdrDynamicToneMapping": value}}
-        )
+        return await self.client.set_settings("picture", {"hdrDynamicToneMapping": value})
 
     # ── System ────────────────────────────────────────────────────────
 
