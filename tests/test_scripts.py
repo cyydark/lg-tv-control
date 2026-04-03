@@ -81,8 +81,6 @@ class TestBrightnessGuardianInit:
 
     def test_init_requires_ip(self):
         """ip is a required positional argument."""
-        import sys
-        sys.path.insert(0, "/Users/chenyanyu/Library/Python/3.9/lib/python/site-packages")
         from lg_brightness_guard import BrightnessGuardian
 
         guardian = BrightnessGuardian(ip="192.168.2.40")
@@ -90,8 +88,6 @@ class TestBrightnessGuardianInit:
 
     def test_init_defaults(self):
         """Default values are applied."""
-        import sys
-        sys.path.insert(0, "/Users/chenyanyu/Library/Python/3.9/lib/python/site-packages")
         from lg_brightness_guard import BrightnessGuardian
 
         guardian = BrightnessGuardian(ip="192.168.2.40", target=80, poll=10, threshold=5)
@@ -104,8 +100,6 @@ class TestBrightnessGuardianInit:
 
     def test_restore_backlight_uses_set_settings(self):
         """restore_backlight calls client.set_settings, not luna_request."""
-        import sys
-        sys.path.insert(0, "/Users/chenyanyu/Library/Python/3.9/lib/python/site-packages")
         from lg_brightness_guard import BrightnessGuardian
         import asyncio
 
@@ -130,8 +124,6 @@ class TestLgTvControllerSetters:
 
     def test_set_backlight_uses_set_settings(self):
         """set_backlight calls client.set_settings with clamped int."""
-        import sys
-        sys.path.insert(0, "/Users/chenyanyu/Library/Python/3.9/lib/python/site-packages")
         from lg_tv_control import LgTvController
         import asyncio
 
@@ -155,8 +147,6 @@ class TestLgTvControllerSetters:
 
     def test_set_brightness_clamped(self):
         """set_brightness clamps to 0-100."""
-        import sys
-        sys.path.insert(0, "/Users/chenyanyu/Library/Python/3.9/lib/python/site-packages")
         from lg_tv_control import LgTvController
         import asyncio
 
@@ -176,8 +166,6 @@ class TestLgTvControllerSetters:
 
     def test_set_picture_mode_string(self):
         """set_picture_mode passes mode string as-is."""
-        import sys
-        sys.path.insert(0, "/Users/chenyanyu/Library/Python/3.9/lib/python/site-packages")
         from lg_tv_control import LgTvController
         import asyncio
 

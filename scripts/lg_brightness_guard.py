@@ -11,13 +11,10 @@ import json
 import time
 import argparse
 
-# Use Python 3.9 packages (where bscpylgtv is installed)
-sys.path.insert(0, "/Users/chenyanyu/Library/Python/3.9/lib/python/site-packages")
-
-# Disable macOS system SOCKS proxy (Clash on :7893) for local TV WebSocket access.
-# urllib.request.getproxies() reads macOS system proxy settings, which websockets
-# follows unconditionally. Must patch before bscpylgtv imports websockets.
+# Find bscpylgtv: try normal import first, then common macOS Python paths.
+# urllib must be patched BEFORE bscpylgtv imports websockets.
 import urllib.request
+
 _orig_getproxies = urllib.request.getproxies
 
 
@@ -29,7 +26,20 @@ def _no_socks_getproxies():
 
 urllib.request.getproxies = _no_socks_getproxies
 
-from bscpylgtv import webos_client, StorageSqliteDict
+for _p in [
+    None,  # normal import
+    "/Users/chenyanyu/Library/Python/3.9/lib/python/site-packages",
+]:
+    if _p:
+        sys.path.insert(0, _p)
+    try:
+        from bscpylgtv import webos_client, StorageSqliteDict  # noqa: F401
+        break
+    except ImportError:
+        if _p:
+            sys.path.remove(_p)
+else:
+    sys.exit("Error: bscpylgtv not found. Install with: pip install bscpylgtv websockets")
 
 _SKILL_DIR = os.path.dirname(os.path.abspath(__file__)) + "/.."
 STORE_PATH = os.path.join(_SKILL_DIR, ".lg_tv_store.db")
