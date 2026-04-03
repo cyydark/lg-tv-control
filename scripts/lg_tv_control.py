@@ -18,10 +18,10 @@ import sys
 import argparse
 import json
 import asyncio
+import glob
 
-# Find bscpylgtv: try normal import first, then common macOS Python paths.
+# Find bscpylgtv: try normal import first; if missing, search common library paths.
 # urllib must be patched BEFORE bscpylgtv imports websockets.
-import sys
 import urllib.request
 
 _orig_getproxies = urllib.request.getproxies
@@ -35,22 +35,43 @@ def _no_socks_getproxies():
 
 urllib.request.getproxies = _no_socks_getproxies
 
-for _p in [
-    None,  # normal import
-    "/Users/chenyanyu/Library/Python/3.9/lib/python/site-packages",
-]:
+_FOUND_BSCPY = False
+for _p in [None]:
     if _p:
         sys.path.insert(0, _p)
     try:
         from bscpylgtv import webos_client, StorageSqliteDict  # noqa: F401
+        _FOUND_BSCPY = True
         break
     except ImportError:
-        if _p:
-            sys.path.remove(_p)
-else:
-    sys.exit("Error: bscpylgtv not found. Install with: pip install bscpylgtv websockets")
+        pass
 
-from bscpylgtv import webos_client, StorageSqliteDict
+if not _FOUND_BSCPY:
+    _home = os.path.expanduser("~")
+    _SEARCH_PATTERNS = [
+        f"{_home}/Library/Python/*/lib/python/*/site-packages",
+        f"{_home}/Library/Python/*/lib/python/site-packages",
+        "/Library/Python/*/lib/python/site-packages",
+        "/usr/local/lib/python*/site-packages",
+        "/opt/homebrew/lib/python*/site-packages",
+    ]
+    for _pattern in _SEARCH_PATTERNS:
+        for _site_dir in glob.glob(_pattern):
+            if not os.path.isdir(_site_dir) or _site_dir in sys.path:
+                continue
+            sys.path.insert(0, _site_dir)
+            try:
+                from bscpylgtv import webos_client, StorageSqliteDict  # noqa: F401
+                _FOUND_BSCPY = True
+                break
+            except ImportError:
+                if _site_dir in sys.path:
+                    sys.path.remove(_site_dir)
+        if _FOUND_BSCPY:
+            break
+
+if not _FOUND_BSCPY:
+    sys.exit("Error: bscpylgtv not found. Install with: pip install bscpylgtv websockets")
 
 # Default store in skill directory (symlinked from ~/.lg_tv_store.db)
 _SKILL_DIR = os.path.dirname(os.path.abspath(__file__)) + "/.."
