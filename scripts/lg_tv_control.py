@@ -18,9 +18,10 @@ import sys
 import argparse
 import json
 import asyncio
-import glob
+import subprocess
+from typing import Optional
 
-# Find bscpylgtv: try normal import first; if missing, search common library paths.
+# ── Bootstrap: find a Python with bscpylgtv and restart with it ────────────
 # urllib must be patched BEFORE bscpylgtv imports websockets.
 import urllib.request
 
@@ -35,42 +36,30 @@ def _no_socks_getproxies():
 
 urllib.request.getproxies = _no_socks_getproxies
 
-_FOUND_BSCPY = False
-for _p in [None]:
-    if _p:
-        sys.path.insert(0, _p)
-    try:
-        from bscpylgtv import webos_client, StorageSqliteDict  # noqa: F401
-        _FOUND_BSCPY = True
-        break
-    except ImportError:
-        pass
+try:
+    from bscpylgtv import webos_client, StorageSqliteDict  # noqa: F401
+except ImportError:
+    if os.environ.get("BSCPY_SELF"):
+        # Already restarted — don't loop
+        sys.exit("Error: bscpylgtv not found. Install with: pip install bscpylgtv websockets")
 
-if not _FOUND_BSCPY:
-    _home = os.path.expanduser("~")
-    _SEARCH_PATTERNS = [
-        f"{_home}/Library/Python/*/lib/python/*/site-packages",
-        f"{_home}/Library/Python/*/lib/python/site-packages",
-        "/Library/Python/*/lib/python/site-packages",
-        "/usr/local/lib/python*/site-packages",
-        "/opt/homebrew/lib/python*/site-packages",
-    ]
-    for _pattern in _SEARCH_PATTERNS:
-        for _site_dir in glob.glob(_pattern):
-            if not os.path.isdir(_site_dir) or _site_dir in sys.path:
+    # Search PATH for a Python that has bscpylgtv
+    seen = set()
+    for _dir in os.environ.get("PATH", "").split(os.pathsep):
+        if not _dir or _dir in seen:
+            continue
+        seen.add(_dir)
+        for _name in ("python3", "python"):
+            _exe = os.path.join(_dir, _name)
+            if not os.path.isfile(_exe) or _exe in seen:
                 continue
-            sys.path.insert(0, _site_dir)
-            try:
-                from bscpylgtv import webos_client, StorageSqliteDict  # noqa: F401
-                _FOUND_BSCPY = True
-                break
-            except ImportError:
-                if _site_dir in sys.path:
-                    sys.path.remove(_site_dir)
-        if _FOUND_BSCPY:
-            break
+            seen.add(_exe)
+            if subprocess.run([_exe, "-c", "import bscpylgtv"],
+                              capture_output=True, timeout=10).returncode == 0:
+                # Found one — restart with it, pass marker to avoid loops
+                _env = dict(os.environ, BSCPY_SELF="1")
+                os.execve(_exe, [_exe, __file__] + sys.argv[1:], _env)
 
-if not _FOUND_BSCPY:
     sys.exit("Error: bscpylgtv not found. Install with: pip install bscpylgtv websockets")
 
 # Default store in skill directory (symlinked from ~/.lg_tv_store.db)
@@ -88,10 +77,10 @@ PICTURE_MODES = [
 
 
 class LgTvController:
-    def __init__(self, ip, store_path=None):
+    def __init__(self, ip: str, store_path: Optional[str] = None):
         self.ip = ip
         self.store_path = store_path or DEFAULT_STORE
-        self.client = None
+        self.client: Optional[webos_client.WebOsClient] = None
 
     async def connect(self):
         storage = StorageSqliteDict(self.store_path)
@@ -155,10 +144,10 @@ class LgTvController:
     async def get_current_app(self):
         return await self.client.get_current_app()
 
-    async def launch_app(self, app_id):
+    async def launch_app(self, app_id: str):
         return await self.client.launch_app(app_id)
 
-    async def set_input(self, input_id):
+    async def set_input(self, input_id: str):
         """Set input: HDMI_1, HDMI_2, HDMI_3, HDMI_4, etc."""
         return await self.client.set_input(input_id)
 

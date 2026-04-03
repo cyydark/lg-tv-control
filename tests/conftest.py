@@ -1,38 +1,38 @@
 """pytest configuration: set up bscpylgtv import path once for all tests."""
 import sys
 import os
-import glob
+import subprocess
 
-_FOUND_BSCPY = False
-for _p in [None]:
-    try:
-        import bscpylgtv  # noqa: F401
-        _FOUND_BSCPY = True
-        break
-    except ImportError:
-        pass
-
-if not _FOUND_BSCPY:
-    _home = os.path.expanduser("~")
-    _SEARCH_PATTERNS = [
-        f"{_home}/Library/Python/*/lib/python/*/site-packages",
-        f"{_home}/Library/Python/*/lib/python/site-packages",
-        "/Library/Python/*/lib/python/site-packages",
-        "/usr/local/lib/python*/site-packages",
-        "/opt/homebrew/lib/python*/site-packages",
-    ]
-    for _pattern in _SEARCH_PATTERNS:
-        for _site_dir in glob.glob(_pattern):
-            if not os.path.isdir(_site_dir) or _site_dir in sys.path:
+# Try normal import first (fast path if current Python has it)
+try:
+    import bscpylgtv  # noqa: F401
+except ImportError:
+    if not os.environ.get("BSCPY_SELF"):
+        # Search PATH for a Python that has bscpylgtv and inject its site-packages
+        seen = set()
+        for _dir in os.environ.get("PATH", "").split(os.pathsep):
+            if not _dir or _dir in seen:
                 continue
-            sys.path.insert(0, _site_dir)
+            seen.add(_dir)
+            for _name in ("python3", "python"):
+                _exe = os.path.join(_dir, _name)
+                if not os.path.isfile(_exe) or _exe in seen:
+                    continue
+                seen.add(_exe)
+                if subprocess.run([_exe, "-c", "import bscpylgtv"],
+                                  capture_output=True, timeout=10).returncode == 0:
+                    # Found one — get its site-packages and add to sys.path
+                    result = subprocess.run(
+                        [_exe, "-c", "import site; print(site.getusersitepackages())"],
+                        capture_output=True, text=True, timeout=10,
+                    )
+                    _sp = result.stdout.strip()
+                    if _sp and _sp not in sys.path:
+                        sys.path.insert(0, _sp)
+                    break
             try:
                 import bscpylgtv  # noqa: F401
-                _FOUND_BSCPY = True
                 break
             except ImportError:
-                if _site_dir in sys.path:
-                    sys.path.remove(_site_dir)
-        if _FOUND_BSCPY:
-            break
+                pass
 # If not found, tests fail with a clear import error — acceptable for unit tests.
